@@ -1,6 +1,5 @@
 require 'rubygems'
 require 'osx/cocoa'
-require 'active_support'
 
 require 'red_artisan/core_image/filters/scale'
 require 'red_artisan/core_image/filters/color'
@@ -94,19 +93,19 @@ module OSX
   class CIImage
     include OCObjWrapper
   
-    def method_missing_with_filter_processing(sym, *args, &block)
-      f = OSX::CIFilter.filterWithName("CI#{sym.to_s.camelize}")
-      return method_missing_without_filter_processing(sym, *args, &block) unless f
-    
-      f.setDefaults if f.respond_to? :setDefaults
-      f.setValue_forKey(self, 'inputImage')
-      options = args.last.is_a?(Hash) ? args.last : {}
-      options.each { |k, v| f.setValue_forKey(v, k.to_s) }
-    
-      block.call f.valueForKey('outputImage')
+    def method_missing(sym, *args, &block)
+      filter_name = sym.to_s.split('_').map(&:capitalize).join
+      f = OSX::CIFilter.filterWithName("CI#{filter_name}")
+      if f
+        f.setDefaults if f.respond_to? :setDefaults
+        f.setValue_forKey(self, 'inputImage')
+        options = args.last.is_a?(Hash) ? args.last : {}
+        options.each { |k, v| f.setValue_forKey(v, k.to_s) }
+        block.call f.valueForKey('outputImage')
+      else
+        super
+      end
     end
-  
-    alias_method_chain :method_missing, :filter_processing
       
     def save(target, format = OSX::NSJPEGFileType, properties = nil)
       bitmapRep = OSX::NSBitmapImageRep.alloc.initWithCIImage(self)
